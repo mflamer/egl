@@ -9,38 +9,31 @@ void setup() {
 	GD.BitmapHandle(0);
 	GD.cmd_loadimage(0, 0);
 	GD.load("healsky3.jpg");
-
+	
 }
 
 
-static void zigzag(int x)
-{
-GD.Vertex2ii(x - 10, 10); GD.Vertex2ii(x + 10, 60);
-GD.Vertex2ii(x - 10, 110); GD.Vertex2ii(x + 10, 160);
-GD.Vertex2ii(x - 10, 210); GD.Vertex2ii(x + 10, 260);
-}
 
 
 void loop()
 {
-GD.Clear();
+	GD.ClearColorRGB(0xFFA07A);
+	GD.Clear();
 
+	//GD.cmd_translate(F16(100), F16(100));
+	//GD.cmd_rotate(DEGREES(45));
+	//GD.cmd_translate(F16(-64), F16(-64));
+	//GD.cmd_setmatrix();
+	//GD.BitmapSize(BILINEAR, BORDER, BORDER, 200, 200);
+	//GD.Begin(BITMAPS);
+	//GD.Vertex2ii(140, 36, 0); // handle 1: healsky3
 
-GD.cmd_rotate(DEGREES(22.5));
-GD.cmd_setmatrix();
+	DrawState state;
+	//state.tmat.Rotate(45);
+	state.tmat.Translate(50, 50);
+	Line l = Line(-100, 50, 100, -50);
+	l.Draw(state);
 
-GD.Begin(LINES);
-zigzag(140);
-GD.Begin(LINE_STRIP);
-zigzag(240);
-GD.LineWidth(16 * 10);
-GD.Begin(LINE_STRIP);
-zigzag(340);
-
-GD.Begin(BITMAPS);
-GD.Vertex2ii(200, 100, 0); // handle 1: healsky3
-
-
-GD.swap();
+	GD.swap();
 }
 
