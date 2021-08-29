@@ -25,12 +25,12 @@ TMat2& TMat2::operator*=(const TMat2& m){
 
 TMat2& TMat2::Rotate(float r){
 	r = degToRad(r);
-	a = ( cos(r) * a) + (sin(r) * c); 
-	b = ( cos(r) * b) + (sin(r) * d); 
-	x = ( cos(r) * x) + (sin(r) * y);
-	c = (-sin(r) * a) + (cos(r) * c);
-	d = (-sin(r) * b) + (cos(r) * d);
-	y = (-sin(r) * x) + (cos(r) * y);
+	TMat2 m;
+	m.a = cos(r);
+	m.b = sin(r);
+	m.c = sin(r);
+	m.d = -cos(r);
+	(*this) = m * (*this);	
 	return *this;
 }
 

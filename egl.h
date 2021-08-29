@@ -5,6 +5,7 @@
 #include <string>
 #include <list>
 #include <map>
+#include <memory>
 #include "mlib.h"
 
 
@@ -39,29 +40,46 @@ class Node{
 public:
 			Node();
 	virtual	~Node()=0;
-	virtual	void 		Draw(DrawState& state)=0;
-	virtual int			ID(){return id;}
-	virtual void		Accept(NodeVisitor& v)=0;
+	virtual	void 					Draw(DrawState& state)=0;
+	virtual int						ID(){return id;}
+	virtual	std::shared_ptr<Node>	Find(int _id);
+	virtual void					Accept(NodeVisitor& v)=0;
 
-private:
+protected:
 	int			id;
 	static int  next_id;
 };
 
 
-class GroupNode : public Node{
+class Group : public Node{
 public:
-	GroupNode();
-	~GroupNode()=0;
-	virtual	void		Draw(DrawState& state);
-	virtual void		Accept(NodeVisitor& v);
+	Group();
+	~Group();
+	static std::shared_ptr<Group>	Make(std::shared_ptr<Node> n);		
+	virtual	void					Draw(DrawState& state);
+	virtual void					Accept(NodeVisitor& v);
+	Group&							Add(std::shared_ptr<Node> n);
+	void							Remove(std::shared_ptr<Node> n);
+	std::shared_ptr<Node>			Find(int _id);
 
-private:	
-	std::list<Node*> 	nodes;
+protected:	
+	
+	std::list<std::shared_ptr<Node>> nodes;
 };
 
-class Transform : public GroupNode{
 
+class Transform : public Group{
+public:
+	Transform();
+	Transform(std::shared_ptr<Node> n);
+	~Transform();
+	static std::shared_ptr<Transform> Make(TMat2& m, std::shared_ptr<Node> n);
+	virtual	void					Draw(DrawState& state);
+	virtual void					Accept(NodeVisitor& v);
+	TMat2&							Matrix(){return tmat;}
+
+protected:
+	TMat2 tmat;
 };
 
 
@@ -69,9 +87,10 @@ class Line : public Node{
 public:	
 	Line(float x0, float y0, float x1, float y1);
 	~Line(){}
-	virtual	void 		Draw(DrawState& state);	
-	virtual void		Accept(NodeVisitor& v);
-private:
+	static std::shared_ptr<Line>    Make(float x0, float y0, float x1, float y1);
+	virtual	void 					Draw(DrawState& state);	
+	virtual void					Accept(NodeVisitor& v);
+protected:
 	V2 start, end;	
 };
 
@@ -93,6 +112,8 @@ int ModelToScreen_Y(float y);
 
 class NodeVisitor{
 public:
-	virtual void Visit_GroupNode(GroupNode& g){;}
+	virtual void Visit_Group(Group& g){;}
+	virtual void Visit_Transform(Transform& t){;}
+	virtual void Visit_Line(Line& l){;}
 };
 

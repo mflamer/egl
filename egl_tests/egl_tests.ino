@@ -3,12 +3,18 @@
 #include "egl.h"
 
 
+Group root;
+
 void setup() {
 	GD.begin();
 
 	GD.BitmapHandle(0);
 	GD.cmd_loadimage(0, 0);
 	GD.load("healsky3.jpg");
+
+	
+	//auto t = TMat2().Rotate(45);
+	root.Add(Transform::Make(TMat2().Rotate(45), Line::Make(0, 0, 50, 0)));
 	
 }
 
@@ -20,6 +26,8 @@ void loop()
 	GD.ClearColorRGB(0xFFA07A);
 	GD.Clear();
 
+
+
 	//GD.cmd_translate(F16(100), F16(100));
 	//GD.cmd_rotate(DEGREES(45));
 	//GD.cmd_translate(F16(-64), F16(-64));
@@ -29,10 +37,18 @@ void loop()
 	//GD.Vertex2ii(140, 36, 0); // handle 1: healsky3
 
 	DrawState state;
-	//state.tmat.Rotate(45);
-	state.tmat.Translate(50, 50);
-	Line l = Line(-100, 50, 100, -50);
-	l.Draw(state);
+	//state.tmat.Rotate(135);
+	//state.tmat.Translate(50, 50);
+	//state.tmat.Scale(1, 2);
+
+
+	root.Draw(state);
+
+	// origin 
+	GD.Begin(POINTS);
+	GD.ColorRGB(30, 30, 30);
+	GD.Vertex2ii(GD.w/2, GD.h/2, 0);
+	GD.Vertex2ii(GD.w/2 +50, GD.h/2 +50, 0);
 
 	GD.swap();
 }
