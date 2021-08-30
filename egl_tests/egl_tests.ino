@@ -13,8 +13,10 @@ void setup() {
 	GD.load("healsky3.jpg");
 
 	
-	//auto t = TMat2().Rotate(45);
-	root.Add(Transform::Make(TMat2().Rotate(45), Line::Make(0, 0, 50, 0)));
+	auto p = Parametric::Make();
+	p->Set("test", 25.0f);
+	root.Add(p);
+	p->Add(Transform::Make(TMat2().Rotate(45), Line::Make("test", 0.0f, 50.0f, 0.0f)));
 	
 }
 
