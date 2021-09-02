@@ -3,7 +3,7 @@
 #include "egl.h"
 
 
-Group root;
+auto root = Group::Make();;
 
 void setup() {
 	GD.begin();
@@ -13,10 +13,19 @@ void setup() {
 	GD.load("healsky3.jpg");
 
 	
-	auto p = Parametric::Make();
-	p->Set("test", 25.0f);
-	root.Add(p);
-	p->Add(Transform::Make(TMat2().Rotate(45), Line::Make("test", 0.0f, 50.0f, 0.0f)));
+	//auto p = Parametric::Make();
+	//p->SetF("px", 25);
+	//p->SetF("py", -50);
+	//root.Add(p);
+
+	auto t = Transform::Make(TMat2().Rotate(45), Line::Make(0, 0, 75, 0));
+	t->Add(Line::Make(-20, -20, -100, 100));
+	
+	auto p = Attributes::Make();
+	p->Add(Line::Make(20, 20, 100, 100));
+	p->SetColor(darkorange);
+	t->Add(p);
+	root->Add(t);
 	
 }
 
@@ -25,7 +34,7 @@ void setup() {
 
 void loop()
 {
-	GD.ClearColorRGB(0xFFA07A);
+	GD.ClearColorRGB(0xDFA07A);
 	GD.Clear();
 
 
@@ -38,13 +47,14 @@ void loop()
 	//GD.Begin(BITMAPS);
 	//GD.Vertex2ii(140, 36, 0); // handle 1: healsky3
 
-	DrawState state;
+
 	//state.tmat.Rotate(135);
 	//state.tmat.Translate(50, 50);
 	//state.tmat.Scale(1, 2);
 
-
-	root.Draw(state);
+	BatchPass batcher;
+	root->Accept(batcher);
+	batcher.Draw();
 
 	// origin 
 	GD.Begin(POINTS);
