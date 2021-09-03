@@ -26,10 +26,10 @@ TMat2& TMat2::operator*=(const TMat2& m){
 TMat2& TMat2::Rotate(float r){
 	r = degToRad(r);
 	TMat2 m;
-	m.a = cos(r);
-	m.b = sin(r);
-	m.c = sin(r);
-	m.d = -cos(r);
+	m.a = cos(-r);
+	m.b = sin(-r);
+	m.c = -sin(-r);
+	m.d = cos(-r);
 	(*this) = m * (*this);	
 	return *this;
 }

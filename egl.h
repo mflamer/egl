@@ -40,13 +40,83 @@ enum Colors {
  	palegoldenrod			= 0xEEE8AA,
  	khaki					= 0xF0E68C,
  	darkkhaki				= 0xBDB76B,
- 	yellow					= 0xFFFF00
+ 	yellow					= 0xFFFF00,
+ 	// greens
+ 	awngreen				= 0x7CFC00,
+ 	chartreuse				= 0x7FFF00,
+ 	limegreen				= 0x32CD32,
+ 	lime					= 0x00FF00,
+ 	forestgreen				= 0x228B22,
+ 	green					= 0x008000,	
+ 	darkgreen				= 0x006400,	
+ 	greenyellow				= 0xADFF2F,	
+ 	yellowgreen				= 0x9ACD32,	
+ 	springgreen				= 0x00FF7F,	
+ 	mediumspringgreen		= 0x00FA9A,	
+ 	lightgreen				= 0x90EE90,	
+ 	palegreen				= 0x98FB98,	
+ 	darkseagreen			= 0x8FBC8F,	
+ 	mediumseagreen			= 0x3CB371,	
+ 	seagreen				= 0x2E8B57,
+ 	olive					= 0x808000,	
+ 	darkolivegreen			= 0x556B2F,	
+ 	olivedrab				= 0x6B8E23,	
+ 	// cyans
+ 	lightcyan				= 0xE0FFFF,	
+ 	cyan					= 0x00FFFF,	
+ 	aqua					= 0x00FFFF,	
+ 	aquamarine				= 0x7FFFD4,	
+ 	mediumaquamarine		= 0x66CDAA,	
+ 	paleturquoise			= 0xAFEEEE,	
+ 	turquoise				= 0x40E0D0,	
+ 	mediumturquoise			= 0x48D1CC,	
+ 	darkturquoise			= 0x00CED1,	
+ 	lightseagreen			= 0x20B2AA,	
+ 	cadetblue				= 0x5F9EA0,	
+ 	darkcyan				= 0x008B8B,	
+ 	teal					= 0x008080,	
+ 	// blues
+ 	powderblue				= 0xB0E0E6,	
+ 	lightblue				= 0xADD8E6,	
+ 	lightskyblue			= 0x87CEFA,	
+ 	skyblue					= 0x87CEEB,	
+ 	deepskyblue				= 0x00BFFF,	
+ 	lightsteelblue			= 0xB0C4DE,	
+ 	dodgerblue				= 0x1E90FF,	
+ 	cornflowerblue			= 0x6495ED,	
+ 	steelblue				= 0x4682B4,	
+ 	royalblue				= 0x4169E1,	
+ 	blue					= 0x0000FF,	
+ 	mediumblue				= 0x0000CD,	
+ 	darkblue				= 0x00008B,	
+ 	navy					= 0x000080,	
+ 	midnightblue			= 0x191970,	
+ 	mediumslateblue			= 0x7B68EE,	
+ 	slateblue				= 0x6A5ACD,	
+ 	darkslateblue			= 0x483D8B,	
+ 	// purples
+ 	lavender				= 0xE6E6FA,	
+ 	thistle					= 0xD8BFD8,	
+ 	plum					= 0xDDA0DD,	
+ 	violet					= 0xEE82EE,	
+ 	orchid					= 0xDA70D6,	
+ 	fuchsia					= 0xFF00FF,	
+ 	magenta					= 0xFF00FF,	
+ 	mediumorchid			= 0xBA55D3,	
+ 	mediumpurple			= 0x9370DB,	
+ 	blueviolet				= 0x8A2BE2,	
+ 	darkviolet				= 0x9400D3,	
+ 	darkorchid				= 0x9932CC,	
+ 	darkmagenta				= 0x8B008B,	
+ 	purple					= 0x800080,	
+ 	indigo					= 0x4B0082	
+
 };
 
 class Color {
 	int rgba;
 public:
-	Color(){rgba = 0xFFFFFFFF;}
+	Color(){rgba = 0xFF000000;}
 	Color(U8 r, U8 g, U8 b, U8 a = 255);
 	Color(int c){rgba = c;}
 	int	rgb(){return rgba & 0x00FFFFFF;}
@@ -163,55 +233,50 @@ class NodeVisitor;
 
 class Node{
 public:
-	Node();
 	virtual	~Node()=0;
-	virtual	void 					Draw()=0;					
-	virtual int						ID(){return id;}
-	virtual	std::shared_ptr<Node>	Find(int _id);
+	virtual	void 					Draw()=0;  
+	virtual	void 					Update(){}					
 	virtual void					Accept(NodeVisitor& v)=0;
-
 protected:
-	void							Mark(){id = next_id++;}
-	int			id;
-	static int  next_id;
+	Node();
+
 };
 
 typedef std::shared_ptr<Node> NPtr;
 
 
 class Group : public Node{
-public:	
-	Group(){}
+public:		
 	~Group();
 	static std::shared_ptr<Group>	Make(NPtr n = NULL);		
 	virtual	void					Draw();
+	virtual	void 					Update();	
 	virtual void					Accept(NodeVisitor& v);
 	Group&							Add(NPtr n);
-	int								Children(){return nodes.size();}
-	void							Remove(NPtr n);
-	NPtr							Find(int _id);
+	void							Clear();
+	//void							Remove(NPtr n);
 	std::list<NPtr>&				Nodes(){return nodes;}
 
 protected:	
-	Group(int id);
+	Group(){}
 	std::list<NPtr> nodes;
 };
 
 
 class Transform : public Group{
-public:
-	Transform();
+public:	
 	~Transform();
 	static std::shared_ptr<Transform> 	Make(TMat2& m, NPtr n = NULL);
 	virtual void						Accept(NodeVisitor& v);
 	TMat2&								Matrix(){return tmat;}
 
 protected:
+	Transform();
 	TMat2 tmat;
 };
 
 class Attributes : public Group{
-public:
+public:	
 	Attributes();
 	Attributes(const Attributes& copy);
 	~Attributes();
@@ -226,6 +291,7 @@ public:
 	bool								operator==(Attributes& rhs);
 
 protected:
+
 	Layer			layer;
 	Color 			color;
 	unsigned char 	tag;
@@ -259,8 +325,7 @@ protected:
 
 
 class Line : public Node{
-public:	
-	Line(PFloat x0, PFloat y0, PFloat x1, PFloat y1);
+public:		
 	~Line(){}
 	static std::shared_ptr<Line>    Make(PFloat x0, PFloat y0, PFloat x1, PFloat y1);
 	virtual	void 					Draw();	
@@ -268,14 +333,18 @@ public:
 	V2								Start(){return V2(x0, y0);}
 	V2								End(){return V2(x1, y1);}
 protected:
+	Line(PFloat x0, PFloat y0, PFloat x1, PFloat y1);
+
 	PFloat x0, y0, x1, y1;	
 };
 
 class Rectangle : public Group{
-public:
-	Rectangle(PFloat width, PFloat height);
-
-private:	
+public:	
+	static std::shared_ptr<Rectangle>   Make(PFloat w, PFloat h);	
+	virtual	void 						Update();
+protected:
+	Rectangle(PFloat w, PFloat h);
+	PFloat w, h;		
 
 };
 

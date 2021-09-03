@@ -9,19 +9,14 @@ std::list<PEnv*> PValue::scope;
 
 //// Node /////////////////////////////////////////////////////
 
-int Node::next_id = 0;
 
-Node::Node(): id(0xFFFFFFFF){
+Node::Node(){
 }
 
 Node::~Node(){
 
 }
 
-NPtr Node::Find(int _id){
-	if(_id == id) return NPtr(this);
-	return NULL;
-}
 
 //// Line /////////////////////////////////////////////////////
 
@@ -31,41 +26,43 @@ Line::Line(PFloat x0, PFloat y0, PFloat x1, PFloat y1): x0(x0), y0(y0), x1(x1), 
 
 std::shared_ptr<Line> Line::Make(PFloat x0, PFloat y0, PFloat x1, PFloat y1){
 	auto l = std::shared_ptr<Line>(new Line(x0, y0, x1, y1));
-	l->Mark();
 	return l;
 }
 
 void Line::Draw(){	
-	Serial.print("Line.Draw "); Serial.print(ID()); Serial.print("\n");
 	GD.Vertex2f(ModelToScreen_X(x0), ModelToScreen_Y(y0));
 	GD.Vertex2f(ModelToScreen_X(x1), ModelToScreen_Y(y1));
+	Serial.print("Vertex "); Serial.print(x0); Serial.print(", "); Serial.print(y0); Serial.print("\n");
+	Serial.print("Vertex "); Serial.print(x1); Serial.print(", "); Serial.print(y1); Serial.print("\n");
 }	
 
 void Line::Accept(NodeVisitor& v){
-	Serial.print(" Line _ Accept \n");
+	//Serial.print(" Line _ Accept \n");
 	v.Visit_Line(*this);
 }	
 
 
 //// Rectangle ////////////////////////////////////////////////////
 
-
-Rectangle::Rectangle(PFloat width, PFloat height){
-
+Rectangle::Rectangle(PFloat w, PFloat h) : w(w), h(h) {
+	Update();
 }
 
+std::shared_ptr<Rectangle> Rectangle::Make(PFloat w, PFloat h){
+	return std::shared_ptr<Rectangle>(new Rectangle(w, h));
+}
+
+void Rectangle::Update(){
+	Clear();
+
+}
 
 
 
 //// Group ////////////////////////////////////////////////////
 
-Group::Group(int id){
-
-}
-
 std::shared_ptr<Group> Group::Make(NPtr n){
 	auto g = std::shared_ptr<Group>(new Group());
-	g->Mark();
 	if(n) g->Add(n);
 	return g;
 }
@@ -78,8 +75,12 @@ void Group::Draw(){
 	std::for_each(nodes.begin(), nodes.end(), [](NPtr n){n->Draw();});
 }
 
+void Group::Update(){
+	std::for_each(nodes.begin(), nodes.end(), [](NPtr n){n->Update();});	
+}
+
 void Group::Accept(NodeVisitor& v){
-	Serial.print("Group - Accepted \n");
+	//Serial.print("Group - Accepted \n");
 	v.Visit_Group(*this);	
 }
 
@@ -88,18 +89,14 @@ Group& Group::Add(NPtr n){
 	return *this;
 }
 
-void Group::Remove(NPtr n){
-
+void Group::Clear(){
+	std::for_each(nodes.begin(), nodes.end(), [](NPtr n){n.reset();});
+	nodes.clear();
 }
 
-NPtr Group::Find(int _id){
-	if(_id == id) return NPtr(this);	
-	NPtr found = NULL;
-	for(auto n = nodes.begin(); n != nodes.end(); n++){ 		
-		if(found = (*n)->Find(_id)) break;
-	}
-	return found;	
-}
+// void Group::Remove(NPtr n){
+
+// }
 
 
 //// Transform ////////////////////////////////////////////////////
@@ -115,13 +112,12 @@ Transform::~Transform(){
 std::shared_ptr<Transform> Transform::Make(TMat2& m, NPtr n){
 	auto t = std::shared_ptr<Transform>(new Transform());
 	t->Matrix() = m;
-	t->Mark();
 	if(n) t->Add(n);
 	return t;  
 }
 
 void Transform::Accept(NodeVisitor& v){
-	Serial.print("Transform - Accepted \n");
+	//Serial.print("Transform - Accepted \n");
 	v.Visit_Transform(*this);
 }
 
@@ -138,7 +134,6 @@ Parametric::~Parametric(){
 
 std::shared_ptr<Parametric> Parametric::Make(NPtr n){
 	auto p = std::shared_ptr<Parametric>(new Parametric());
-	p->Mark();
 	if(n) p->Add(n);
 	return p;
 }
@@ -148,7 +143,7 @@ void Parametric::Draw(){
 }
 
 void Parametric::Accept(NodeVisitor& v){
-	Serial.print("Parametric - Accepted \n");
+	//erial.print("Parametric - Accepted \n");
 	v.Visit_Parametric(*this);
 }
 
@@ -171,13 +166,16 @@ Parametric&	Parametric::SetS(const std::string& p, std::string& v){
 //// Attributes ///////////////////////////////////////////////
 
 Attributes::Attributes(){ 
-	Serial.print("Attributes - Normal Constructor \n");
+	//Serial.print("Attributes - Normal Constructor \n");
 	layer_set =false; color_set = false;
 	tag_set = false; line_width_set = false; point_size_set = false;
+	line_width = 16;
+	color = Color();
+	point_size = 16;
 }
 
 Attributes::Attributes(const Attributes& copy){
-	Serial.print("Attributes - Copy Constructor \n");
+	//Serial.print("Attributes - Copy Constructor \n");
 	layer = copy.layer;
 	color = copy.color;
 	tag = copy.tag;
@@ -198,14 +196,12 @@ Attributes::~Attributes(){
 
 std::shared_ptr<Attributes> Attributes::Make(NPtr n){	
 	auto p = std::shared_ptr<Attributes>(new Attributes());
-	p->Mark();
 	if(n) p->Add(n);
-	Serial.print(" Make Attributs ID = "); Serial.print(p->ID()); Serial.print("\n");
+	//Serial.print(" Make Attributs ID = "); Serial.print(p->ID()); Serial.print("\n");
 	return p;
 }
 
 void Attributes::Accept(NodeVisitor& v){
-	Serial.print("Attributes - Accepted \n");
 	v.Visit_Attributes(*this);
 }
 
@@ -250,7 +246,7 @@ Attributes Attributes::CopyWithSetAttributes(const Attributes& orig){
 }
 
 bool Attributes::operator==(Attributes& rhs){
-	Serial.print(" Attributes == \n");
+	//Serial.print(" Attributes == \n");
 	return 	layer == rhs.layer &&
 			color == rhs.color &&
 			tag == rhs.tag &&
@@ -267,20 +263,18 @@ BatchPass::BatchPass(){
 }	
 
 void BatchPass::Visit_Group(Group& grp){
-	Serial.print(" Visit - Group, Children = "); Serial.print(grp.Children()); Serial.print("\n");
+	//Serial.print(" Visit - Group, Children = "); Serial.print(grp.Children()); Serial.print("\n");
 	std::for_each(grp.Nodes().begin(), grp.Nodes().end(), [this](NPtr n){n->Accept(*this);});
 }
 
 void BatchPass::Visit_Transform(Transform& n){	
-	Serial.print(" Visit - Transform \n");
-	TMat2 m = Tstk.front() *= n.Matrix();
+	TMat2 m = n.Matrix() *= Tstk.front();
 	Tstk.push_front(m);
 	Visit_Group(n);
 	Tstk.pop_front();
 }
 
 void BatchPass::Visit_Attributes(Attributes& n){
-	Serial.print(" Visit - Attributes \n");	
 	Astk.push_front(Astk.front().CopyWithSetAttributes(n));
 	Visit_Group(n);
 	Astk.pop_front();
@@ -291,15 +285,13 @@ void BatchPass::Visit_Attributes(Attributes& n){
 // }
 
 void BatchPass::Visit_Parametric(Parametric& n){
-	Serial.print(" Visit - Parametric \n");
+	//Serial.print(" Visit - Parametric \n");
 	PValue::PushScope(&(n.Env()));
 	Visit_Group(n);
-	PValue::PopScope();
-	
+	PValue::PopScope();	
 }
 
 void BatchPass::Visit_Line(Line& n){
-	Serial.print(" Visit - Line \n");
 	V2 s = Tstk.front() * n.Start();
 	V2 e = Tstk.front() * n.End();	
 	auto l = Line::Make(s.x, s.y, e.x, e.y);
@@ -311,32 +303,32 @@ void BatchPass::Visit_Rectangle(Rectangle& n){
 }
 
 void BatchPass::FindBatchOrMakeNewAndAdd(Primitive prim, NPtr n){
-	Serial.print(" FindBatchOrMakeNewAndAdd "); Serial.print(n->ID()); Serial.print("\n");
+	//Serial.print(" FindBatchOrMakeNewAndAdd "); Serial.print(n->ID()); Serial.print("\n");
 	bool found = false;
 	for(auto itr = batches.begin(); itr != batches.end(); itr++){
-		Serial.print("Try match Batch "); Serial.print(itr->prim); Serial.print("\n");
+		//Serial.print("Try match Batch "); Serial.print(itr->prim); Serial.print("\n");
 		if(itr->prim == prim && ((Attributes)(*itr) == *Astk.begin())){
-			Serial.print("Found match "); Serial.print(itr->ID()); Serial.print("\n");
+			//Serial.print("Found match "); Serial.print(itr->ID()); Serial.print("\n");
 			itr->Add(n);
 			found = true; break;
 		}
 	}
 	if(!found){
 		// no matching batch, make a new one and add node
-		Serial.print(" Astk # "); Serial.print(Astk.size()); Serial.print("\n");
+		//Serial.print(" Astk # "); Serial.print(Astk.size()); Serial.print("\n");
 		Batch b(*Astk.begin(), prim);	
 		batches.push_front(b);	
 		batches.front().Add(n);
-		Serial.print(" Make New Batch, Primitive = "); Serial.print(prim); Serial.print("\n");
+		//Serial.print(" Make New Batch, Primitive = "); Serial.print(prim); Serial.print("\n");
 		
 	}
 }
 
 void BatchPass::Draw(){
-	Serial.print("BatchPass.Draw "); Serial.print(batches.size()); Serial.print("\n");
+	Serial.print("\n\nBatchPass Draw "); Serial.print(batches.size()); Serial.print("\n");
 	Batch* last_batch = NULL;
 	for(auto batch = batches.begin(); batch != batches.end(); batch++){
-		Serial.print("Try to draw batch "); Serial.print(batch->ID()); Serial.print("\n");
+		//Serial.print("Try to draw batch "); Serial.print(batch->ID()); Serial.print("\n");
 		batch->Draw(last_batch);
 		last_batch = &(*batch);
 	}
@@ -347,18 +339,32 @@ void BatchPass::Batch::Accept(NodeVisitor& v){
 }
 
 void BatchPass::Batch::Draw(Batch* last_batch){
+	Serial.print("Batch "); Serial.print(prim); Serial.print("\n");
 	if(last_batch == NULL){
 		GD.Begin(prim);
+		Serial.print("Begin "); Serial.print(prim); Serial.print("\n");
 		GD.ColorRGB(color.rgb());
+		Serial.print("Color "); Serial.print(color.rgb()); Serial.print("\n");
+		GD.LineWidth(line_width);
+		Serial.print("Line Width "); Serial.print(line_width); Serial.print("\n");
 		// finish these
 	}
 	else{
-		if(prim != last_batch->prim) GD.Begin(prim);
-		if(color != last_batch->color) GD.ColorRGB(color.rgb());
+		if(prim != last_batch->prim) {
+			GD.Begin(prim);
+			Serial.print("Begin "); Serial.print(prim); Serial.print("\n");
+		}
+		if(color != last_batch->color){
+			GD.ColorRGB(color.rgb());
+			Serial.print("Color "); Serial.print(color.rgb()); Serial.print("\n");
+		}
+		if(line_width != last_batch->line_width){
+			GD.LineWidth(line_width);
+			Serial.print("Line Width "); Serial.print(line_width); Serial.print("\n");
+		}
 		// finish these
 	}	
 	
-	Serial.print("Batch.Draw "); Serial.print(nodes.size()); Serial.print("\n");
 	std::for_each(nodes.begin(), nodes.end(), [](NPtr n){n->Draw();});	
 }
 

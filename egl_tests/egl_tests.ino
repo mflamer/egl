@@ -13,19 +13,43 @@ void setup() {
 	GD.load("healsky3.jpg");
 
 	
-	//auto p = Parametric::Make();
-	//p->SetF("px", 25);
-	//p->SetF("py", -50);
+	auto p = Parametric::Make();
+	p->SetF("px", 80);
+	p->SetF("py", 20);
+	auto a = Attributes::Make();
+	a->SetColor(darkorange);
+	a->SetLineWidth(48);
+	p->Add(a);
+
+
 	//root.Add(p);
 
-	auto t = Transform::Make(TMat2().Rotate(45), Line::Make(0, 0, 75, 0));
-	t->Add(Line::Make(-20, -20, -100, 100));
+	auto t = Transform::Make(TMat2().Rotate(45));
+	//t->Add(Line::Make(-20, -20, -100, 100));
+	a->Add(t);
 	
-	auto p = Attributes::Make();
-	p->Add(Line::Make(20, 20, 100, 100));
-	p->SetColor(darkorange);
-	t->Add(p);
-	root->Add(t);
+	
+	auto g = Group::Make();
+	g->Add(Line::Make(0, 0, "px", 0));
+	g->Add(Line::Make("px", 0, "px", "py"));
+	g->Add(Line::Make("px", "py", 0, "py"));
+	g->Add(Line::Make(0, "py", 0, 0));	
+
+	t->Add(g);
+
+	auto p1 = Parametric::Make();
+	p1->SetF("px", 40);
+	p1->SetF("py", -20);	
+
+	auto a1 = Attributes::Make();
+	a1->SetColor(darkred);
+	a1->Add(p1);
+
+	p1->Add(g);
+
+	root->Add(p);
+	root->Add(p1);
+	
 	
 }
 
