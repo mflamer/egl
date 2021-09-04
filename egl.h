@@ -124,7 +124,6 @@ public:
 	operator int(){return rgba;}
 };
 
-
 //// layer ////////////////////////////////////////////////////
 
 enum Layers: unsigned char{
@@ -222,6 +221,13 @@ public:
 	PColor(Color v){x.vi = v; is_param = false;}
 	PColor(const std::string& s){x = Key(s); is_param = true;}
 	operator 	Color(){return Color(is_param ? scope.front()->PInts[Key(x)] : x.vi);}	
+};
+
+struct PPnt{
+	PPnt(V2 v): x(v.x), y(v.y){}	
+	PPnt(PFloat x, PFloat y): x(x), y(y){}
+	operator V2(){return V2(x, y);}
+	PFloat x, y;
 };
 
 
@@ -338,13 +344,37 @@ protected:
 	PFloat x0, y0, x1, y1;	
 };
 
+class Polygon : public Node{
+public:		
+	~Polygon(){}
+	static std::shared_ptr<Polygon> Make();
+	virtual	void 					Draw();	
+	virtual void					Accept(NodeVisitor& v);
+	void							AddVertex(PFloat x, PFloat y);
+	void							SetFilled(bool f);	
+	void							TransformVerticies(const TMat2& mat);							
+protected:
+	bool				filled;
+	std::vector<PPnt>	verticies;		
+		
+};
+
+class AARect : public Node{
+
+};
+
+
+
 class Rectangle : public Group{
 public:	
 	static std::shared_ptr<Rectangle>   Make(PFloat w, PFloat h);	
-	virtual	void 						Update();
+	virtual	void 						Draw();	
+	virtual	void 						Update();									
+	bool filled;
+	PFloat w, h;
 protected:
 	Rectangle(PFloat w, PFloat h);
-	PFloat w, h;		
+			
 
 };
 
@@ -359,6 +389,7 @@ public:
 	virtual void Visit_Attributes(Attributes& n){;}
 	virtual void Visit_Parametric(Parametric& n){;}
 	virtual void Visit_Line(Line& n){;}
+	virtual void Visit_Polygon(Polygon& n){;}
 	virtual void Visit_Rectangle(Rectangle& n){;}
 };
 
@@ -373,6 +404,7 @@ public:
 	void 	Visit_Attributes(Attributes& n);
 	void 	Visit_Parametric(Parametric& n);
 	void 	Visit_Line(Line& n);
+	void 	Visit_Polygon(Polygon& n);
 	void 	Visit_Rectangle(Rectangle& n);
 
 	void	Draw();

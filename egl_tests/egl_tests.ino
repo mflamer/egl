@@ -21,13 +21,16 @@ void setup() {
 	a->SetLineWidth(48);
 	p->Add(a);
 
+	auto r = Rectangle::Make(40, 40);
+
+
 
 	//root.Add(p);
 
 	auto t = Transform::Make(TMat2().Rotate(45));
 	//t->Add(Line::Make(-20, -20, -100, 100));
 	a->Add(t);
-	
+	t->Add(r);
 	
 	auto g = Group::Make();
 	g->Add(Line::Make(0, 0, "px", 0));
@@ -47,8 +50,16 @@ void setup() {
 
 	p1->Add(g);
 
+	auto poly = Polygon::Make();
+	poly->AddVertex(-100, 0);
+	poly->AddVertex(-100, 45);
+	poly->AddVertex(-50, -20);
+	poly->AddVertex(-20, -30);
+
+	p1->Add(poly);
+
 	root->Add(p);
-	root->Add(p1);
+	root->Add(a1);
 	
 	
 }

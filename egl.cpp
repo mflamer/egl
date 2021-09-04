@@ -42,6 +42,44 @@ void Line::Accept(NodeVisitor& v){
 }	
 
 
+//// Polygon //////////////////////////////////////////////////////
+
+std::shared_ptr<Polygon> Polygon::Make(){
+	auto p = std::shared_ptr<Polygon>(new Polygon());
+	p->filled = false;
+	return p;
+}
+
+void Polygon::Draw(){
+	if(filled){
+
+	}
+	else{
+		for(auto itr = verticies.begin(); itr != verticies.end(); itr++){
+			GD.Vertex2f(ModelToScreen_X(itr->x), ModelToScreen_Y(itr->y)); 
+		}
+	}
+}	
+
+void Polygon::Accept(NodeVisitor& v){
+	v.Visit_Polygon(*this);
+}
+
+void Polygon::AddVertex(PFloat x, PFloat y){
+	verticies.push_back(PPnt(x,y));
+}	
+
+void Polygon::SetFilled(bool f){
+	filled = f;
+}	
+
+void Polygon::TransformVerticies(const TMat2& mat){
+	for(auto itr = verticies.begin(); itr != verticies.end(); itr++){
+		*itr = PPnt(mat * V2(*itr)); 
+	}
+}
+
+
 //// Rectangle ////////////////////////////////////////////////////
 
 Rectangle::Rectangle(PFloat w, PFloat h) : w(w), h(h) {
@@ -54,6 +92,18 @@ std::shared_ptr<Rectangle> Rectangle::Make(PFloat w, PFloat h){
 
 void Rectangle::Update(){
 	Clear();
+	if(!filled){
+		auto poly = Polygon::Make();
+		poly->AddVertex(0, 0);
+		poly->AddVertex(w, 0);
+		poly->AddVertex(w, h);
+		poly->AddVertex(0, h);
+		poly->AddVertex(0, 0);
+		Add(poly);
+	}
+}
+
+void Rectangle::Draw(){
 
 }
 
@@ -298,8 +348,27 @@ void BatchPass::Visit_Line(Line& n){
 	FindBatchOrMakeNewAndAdd(LINES, l);
 }
 
-void BatchPass::Visit_Rectangle(Rectangle& n){
+void BatchPass::Visit_Polygon(Polygon& n){
+	auto p = Polygon::Make();
+	*p = n;
+	p->TransformVerticies(Tstk.front());
+	FindBatchOrMakeNewAndAdd(LINE_STRIP, p);
+}
 
+void BatchPass::Visit_Rectangle(Rectangle& n){
+	// if(n.IsFilled()){
+	// 	if(abs(Tstk.a) != 1){
+	// 		// rotated
+
+	// 	}
+	// 	else
+	// 	{
+	// 		V2 v0 = Tstk.front() * V2(0,0);
+	// 		V2 v1 = Tstk.front() * V2(n.w, n.h);
+			
+
+	// 	}
+	// }
 }
 
 void BatchPass::FindBatchOrMakeNewAndAdd(Primitive prim, NPtr n){
