@@ -122,6 +122,7 @@ public:
 	int	rgb(){return rgba & 0x00FFFFFF;}
 	int	a(){return (rgba >> 24) & 0xFF;}
 	operator int(){return rgba;}
+	bool operator<(const Color& rhs) { return rgba < rhs.rgba; }
 };
 
 //// layer ////////////////////////////////////////////////////
@@ -155,8 +156,8 @@ public:
 	Layer& MoveTop();
 	Layer& MoveBot();		
 	Layer& Set(Layers l, unsigned char sub = 0);
-	bool operator==(Layer& rhs){return layer == rhs.layer;}
-
+	bool operator==(const Layer& rhs){return layer == rhs.layer;}
+	bool operator<(const Layer& rhs) { return layer < rhs.layer; }
 };
 
 
@@ -235,14 +236,16 @@ struct PPnt{
 //// node heirachy ////////////////////////////////////////////
 
 class NodeVisitor;
+class BatchSet;
 
 
 class Node{
 public:
 	virtual	~Node()=0;
 	virtual	void 					Draw()=0;  
+	virtual void					DrawToBatch(BatchSet& batchSet){}
 	virtual	void 					Update(){}					
-	virtual void					Accept(NodeVisitor& v)=0;
+	virtual void					Accept(NodeVisitor& v) {}
 protected:
 	Node();
 
@@ -256,6 +259,7 @@ public:
 	~Group();
 	static std::shared_ptr<Group>	Make(NPtr n = NULL);		
 	virtual	void					Draw();
+	virtual void					DrawToBatch(BatchSet& batchSet);
 	virtual	void 					Update();	
 	virtual void					Accept(NodeVisitor& v);
 	Group&							Add(NPtr n);
@@ -273,6 +277,7 @@ class Transform : public Group{
 public:	
 	~Transform();
 	static std::shared_ptr<Transform> 	Make(TMat2& m, NPtr n = NULL);
+	virtual void						DrawToBatch(BatchSet& batchSet);
 	virtual void						Accept(NodeVisitor& v);
 	TMat2&								Matrix(){return tmat;}
 
@@ -287,6 +292,7 @@ public:
 	Attributes(const Attributes& copy);
 	~Attributes();
 	static std::shared_ptr<Attributes> 	Make(NPtr n = NULL);
+	virtual void						DrawToBatch(BatchSet& batchSet);
 	virtual void						Accept(NodeVisitor& v);
 	Attributes&							SetLayer(Layer l);
 	Attributes&							SetColor(Color c);
@@ -315,10 +321,9 @@ protected:
 
 class Parametric : public Group{
 	public:
-	Parametric();
 	~Parametric();
 	static std::shared_ptr<Parametric> 	Make(NPtr n = NULL);
-	virtual	void						Draw();
+	virtual void						DrawToBatch(BatchSet& batchSet);
 	virtual void						Accept(NodeVisitor& v);
 	PEnv&								Env(){return env;}	
 	Parametric&							SetI(const std::string& p, int v);
@@ -326,6 +331,7 @@ class Parametric : public Group{
 	Parametric&							SetS(const std::string& p, std::string& v);
 
 protected:
+	Parametric() {}
 	PEnv env;
 };
 
@@ -335,6 +341,7 @@ public:
 	~Line(){}
 	static std::shared_ptr<Line>    Make(PFloat x0, PFloat y0, PFloat x1, PFloat y1);
 	virtual	void 					Draw();	
+	virtual void					DrawToBatch(BatchSet& batchSet);
 	virtual void					Accept(NodeVisitor& v);
 	V2								Start(){return V2(x0, y0);}
 	V2								End(){return V2(x1, y1);}
@@ -349,6 +356,7 @@ public:
 	~Polygon(){}
 	static std::shared_ptr<Polygon> Make();
 	virtual	void 					Draw();	
+	virtual void					DrawToBatch(BatchSet& batchSet);
 	virtual void					Accept(NodeVisitor& v);
 	void							AddVertex(PFloat x, PFloat y);
 	void							SetFilled(bool f);	
@@ -359,23 +367,55 @@ protected:
 		
 };
 
-class AARect : public Node{
-
+class AAFilledRect : public Node{
+public:
+	static std::shared_ptr<AAFilledRect>	Make(V2 bl, V2 tr);
+	virtual	void 							Draw();
+protected:
+	AAFilledRect(V2 bl, V2 tr) : bl(bl), tr(tr) {}
+	V2 bl, tr;
 };
 
 
 
 class Rectangle : public Group{
 public:	
-	static std::shared_ptr<Rectangle>   Make(PFloat w, PFloat h);	
+	static std::shared_ptr<Rectangle>   Make(PFloat width, PFloat height, bool filled);	
 	virtual	void 						Draw();	
+	virtual void						DrawToBatch(BatchSet& batchSet);
 	virtual	void 						Update();									
+	
+protected:
+	Rectangle(PFloat w, PFloat h, bool f) : w(w), h(h), filled(f) {}
 	bool filled;
 	PFloat w, h;
-protected:
-	Rectangle(PFloat w, PFloat h);
-			
+};
 
+class Batch : public Attributes {
+public:	
+	Batch(Attributes& attr, Primitive p) : Attributes(attr), prim(p){}
+	~Batch(){}
+	static std::shared_ptr<Batch>		Make(Attributes& attr, Primitive p);	
+	void								Draw(Batch* last_batch);
+	bool								operator==(const Batch& rhs);
+	bool								operator<(const Batch& rhs);
+
+	Primitive prim;
+};
+
+
+class BatchSet : public Group{
+public:
+	BatchSet();
+	virtual	void 						Draw(); 
+	void 								FindBatchOrMakeNewAndAdd(Primitive prim, NPtr n);
+	std::list<TMat2> 		Tstk;
+	std::list<Attributes>	Astk;
+	std::list<Batch> 		batches;
+
+protected:
+	
+	
 };
 
 
@@ -393,41 +433,6 @@ public:
 	virtual void Visit_Rectangle(Rectangle& n){;}
 };
 
-
-
-
-class BatchPass : public NodeVisitor{
-public:
-	BatchPass();
-	void 	Visit_Group(Group& n);
-	void 	Visit_Transform(Transform& n);
-	void 	Visit_Attributes(Attributes& n);
-	void 	Visit_Parametric(Parametric& n);
-	void 	Visit_Line(Line& n);
-	void 	Visit_Polygon(Polygon& n);
-	void 	Visit_Rectangle(Rectangle& n);
-
-	void	Draw();
-
-private:
-	void FindBatchOrMakeNewAndAdd(Primitive prim, NPtr n);
-
-	class Batch : public Attributes {
-	public:	
-		Batch(Attributes& attr, Primitive p) : Attributes(attr), prim(p){}
-		~Batch(){}
-		void						Accept(NodeVisitor& v);
-		void						Draw(Batch* last_batch);
-		bool						operator==(const Batch& rhs);
-
-		Primitive prim;
-	};
-
-	std::list<Batch> 		batches;
-	std::list<TMat2> 		Tstk;
-	std::list<Attributes>	Astk;
-
-};
 
 
 

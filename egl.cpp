@@ -36,6 +36,13 @@ void Line::Draw(){
 	Serial.print("Vertex "); Serial.print(x1); Serial.print(", "); Serial.print(y1); Serial.print("\n");
 }	
 
+void Line::DrawToBatch(BatchSet& batchSet){
+	V2 s = batchSet.Tstk.front() * V2(x0, y0);
+	V2 e = batchSet.Tstk.front() * V2(x1, y1);	
+	auto l = Line::Make(s.x, s.y, e.x, e.y);
+	batchSet.FindBatchOrMakeNewAndAdd(LINES, l);
+}
+
 void Line::Accept(NodeVisitor& v){
 	//Serial.print(" Line _ Accept \n");
 	v.Visit_Line(*this);
@@ -55,11 +62,19 @@ void Polygon::Draw(){
 
 	}
 	else{
-		for(auto itr = verticies.begin(); itr != verticies.end(); itr++){
+		for(auto itr = verticies.begin(); itr != verticies.end(); itr++){			
 			GD.Vertex2f(ModelToScreen_X(itr->x), ModelToScreen_Y(itr->y)); 
+			Serial.print("Vertex "); Serial.print(itr->x); Serial.print(", "); Serial.print(itr->y); Serial.print("\n");
 		}
 	}
 }	
+
+void Polygon::DrawToBatch(BatchSet& batchSet){
+	auto p = Polygon::Make();
+	*p = *this;
+	p->TransformVerticies(batchSet.Tstk.front());
+	batchSet.FindBatchOrMakeNewAndAdd(LINE_STRIP, p);
+}
 
 void Polygon::Accept(NodeVisitor& v){
 	v.Visit_Polygon(*this);
@@ -82,32 +97,52 @@ void Polygon::TransformVerticies(const TMat2& mat){
 
 //// Rectangle ////////////////////////////////////////////////////
 
-Rectangle::Rectangle(PFloat w, PFloat h) : w(w), h(h) {
-	Update();
-}
-
-std::shared_ptr<Rectangle> Rectangle::Make(PFloat w, PFloat h){
-	return std::shared_ptr<Rectangle>(new Rectangle(w, h));
+std::shared_ptr<Rectangle> Rectangle::Make(PFloat width, PFloat height, bool filled){
+	return std::shared_ptr<Rectangle>(new Rectangle(width, height, filled));
 }
 
 void Rectangle::Update(){
-	Clear();
-	if(!filled){
-		auto poly = Polygon::Make();
-		poly->AddVertex(0, 0);
-		poly->AddVertex(w, 0);
-		poly->AddVertex(w, h);
-		poly->AddVertex(0, h);
-		poly->AddVertex(0, 0);
-		Add(poly);
-	}
+	
 }
 
 void Rectangle::Draw(){
 
 }
 
+void Rectangle::DrawToBatch(BatchSet& batchSet) {
+	if (!filled) {
+		auto poly = Polygon::Make();
+		poly->AddVertex(0, 0);
+		poly->AddVertex(w, 0);
+		poly->AddVertex(w, h);
+		poly->AddVertex(0, h);
+		poly->AddVertex(0, 0);		
+		poly->TransformVerticies(batchSet.Tstk.front());
+		batchSet.FindBatchOrMakeNewAndAdd(LINE_STRIP, poly);
+	}
+	else if (abs(batchSet.Tstk.front().a) != 1) { // filled & rotated
+		//implement using GD.Poly or a solid bitmap
+	}
+	else {
+		V2 bl = batchSet.Tstk.front() * V2(0, 0);
+		V2 tr = batchSet.Tstk.front() * V2(w, h);
+		auto r = AAFilledRect::Make(bl, tr);
+		batchSet.FindBatchOrMakeNewAndAdd(RECTS, r);
+	}
+}
 
+//// AAFilledRect /////////////////////////////////////////////
+
+
+std::shared_ptr<AAFilledRect> AAFilledRect::Make(V2 bl, V2 tr) {
+	return std::shared_ptr<AAFilledRect>(new AAFilledRect(bl, tr));
+}
+
+void AAFilledRect::Draw() {
+	GD.Vertex2f(ModelToScreen_X(bl.x), ModelToScreen_Y(bl.y));
+	GD.Vertex2f(ModelToScreen_X(tr.x), ModelToScreen_Y(tr.y));
+}
+	
 
 //// Group ////////////////////////////////////////////////////
 
@@ -129,6 +164,10 @@ void Group::Update(){
 	std::for_each(nodes.begin(), nodes.end(), [](NPtr n){n->Update();});	
 }
 
+void Group::DrawToBatch(BatchSet& batchSet){
+	std::for_each(nodes.begin(), nodes.end(), [&batchSet](NPtr n){n->DrawToBatch(batchSet);});
+}
+
 void Group::Accept(NodeVisitor& v){
 	//Serial.print("Group - Accepted \n");
 	v.Visit_Group(*this);	
@@ -144,9 +183,6 @@ void Group::Clear(){
 	nodes.clear();
 }
 
-// void Group::Remove(NPtr n){
-
-// }
 
 
 //// Transform ////////////////////////////////////////////////////
@@ -166,6 +202,13 @@ std::shared_ptr<Transform> Transform::Make(TMat2& m, NPtr n){
 	return t;  
 }
 
+void Transform::DrawToBatch(BatchSet& batchSet){
+	TMat2 m = Matrix() *= batchSet.Tstk.front();
+	batchSet.Tstk.push_front(m);
+	Group::DrawToBatch(batchSet);
+	batchSet.Tstk.pop_front();
+}
+
 void Transform::Accept(NodeVisitor& v){
 	//Serial.print("Transform - Accepted \n");
 	v.Visit_Transform(*this);
@@ -174,9 +217,6 @@ void Transform::Accept(NodeVisitor& v){
 
 //// Parametric ////////////////////////////////////////////////////
 
-Parametric::Parametric(){
-
-}
 
 Parametric::~Parametric(){
 
@@ -188,8 +228,10 @@ std::shared_ptr<Parametric> Parametric::Make(NPtr n){
 	return p;
 }
 
-void Parametric::Draw(){
-	
+void Parametric::DrawToBatch(BatchSet& batchSet){
+	PValue::PushScope(&env);
+	Group::DrawToBatch(batchSet);
+	PValue::PopScope();	
 }
 
 void Parametric::Accept(NodeVisitor& v){
@@ -251,6 +293,12 @@ std::shared_ptr<Attributes> Attributes::Make(NPtr n){
 	return p;
 }
 
+void Attributes::DrawToBatch(BatchSet& batchSet){
+	batchSet.Astk.push_front(batchSet.Astk.front().CopyWithSetAttributes(*this));
+	Group::DrawToBatch(batchSet);
+	batchSet.Astk.pop_front();
+}
+
 void Attributes::Accept(NodeVisitor& v){
 	v.Visit_Attributes(*this);
 }
@@ -304,74 +352,14 @@ bool Attributes::operator==(Attributes& rhs){
 			point_size == rhs.point_size;
 }
 
+//// BatchSet ////////////////////////////////////////////////////
 
-//// Batch ////////////////////////////////////////////////////
-
-BatchPass::BatchPass(){
+BatchSet::BatchSet(){
 	Astk.push_front(Attributes());
 	Tstk.push_front(TMat2());
-}	
-
-void BatchPass::Visit_Group(Group& grp){
-	//Serial.print(" Visit - Group, Children = "); Serial.print(grp.Children()); Serial.print("\n");
-	std::for_each(grp.Nodes().begin(), grp.Nodes().end(), [this](NPtr n){n->Accept(*this);});
 }
 
-void BatchPass::Visit_Transform(Transform& n){	
-	TMat2 m = n.Matrix() *= Tstk.front();
-	Tstk.push_front(m);
-	Visit_Group(n);
-	Tstk.pop_front();
-}
-
-void BatchPass::Visit_Attributes(Attributes& n){
-	Astk.push_front(Astk.front().CopyWithSetAttributes(n));
-	Visit_Group(n);
-	Astk.pop_front();
-}
-
-// void BatchPass::Visit_Batch(Batch& n){
-
-// }
-
-void BatchPass::Visit_Parametric(Parametric& n){
-	//Serial.print(" Visit - Parametric \n");
-	PValue::PushScope(&(n.Env()));
-	Visit_Group(n);
-	PValue::PopScope();	
-}
-
-void BatchPass::Visit_Line(Line& n){
-	V2 s = Tstk.front() * n.Start();
-	V2 e = Tstk.front() * n.End();	
-	auto l = Line::Make(s.x, s.y, e.x, e.y);
-	FindBatchOrMakeNewAndAdd(LINES, l);
-}
-
-void BatchPass::Visit_Polygon(Polygon& n){
-	auto p = Polygon::Make();
-	*p = n;
-	p->TransformVerticies(Tstk.front());
-	FindBatchOrMakeNewAndAdd(LINE_STRIP, p);
-}
-
-void BatchPass::Visit_Rectangle(Rectangle& n){
-	// if(n.IsFilled()){
-	// 	if(abs(Tstk.a) != 1){
-	// 		// rotated
-
-	// 	}
-	// 	else
-	// 	{
-	// 		V2 v0 = Tstk.front() * V2(0,0);
-	// 		V2 v1 = Tstk.front() * V2(n.w, n.h);
-			
-
-	// 	}
-	// }
-}
-
-void BatchPass::FindBatchOrMakeNewAndAdd(Primitive prim, NPtr n){
+void BatchSet::FindBatchOrMakeNewAndAdd(Primitive prim, NPtr n){
 	//Serial.print(" FindBatchOrMakeNewAndAdd "); Serial.print(n->ID()); Serial.print("\n");
 	bool found = false;
 	for(auto itr = batches.begin(); itr != batches.end(); itr++){
@@ -385,17 +373,18 @@ void BatchPass::FindBatchOrMakeNewAndAdd(Primitive prim, NPtr n){
 	if(!found){
 		// no matching batch, make a new one and add node
 		//Serial.print(" Astk # "); Serial.print(Astk.size()); Serial.print("\n");
-		Batch b(*Astk.begin(), prim);	
-		batches.push_front(b);	
+		auto b = Batch(*Astk.begin(), prim);	
+		batches.push_front(b);
 		batches.front().Add(n);
 		//Serial.print(" Make New Batch, Primitive = "); Serial.print(prim); Serial.print("\n");
 		
 	}
 }
 
-void BatchPass::Draw(){
-	Serial.print("\n\nBatchPass Draw "); Serial.print(batches.size()); Serial.print("\n");
+void BatchSet::Draw(){
+	Serial.print("\n\nBatchPass Draw "); Serial.print(nodes.size()); Serial.print("\n");
 	Batch* last_batch = NULL;
+	batches.sort();
 	for(auto batch = batches.begin(); batch != batches.end(); batch++){
 		//Serial.print("Try to draw batch "); Serial.print(batch->ID()); Serial.print("\n");
 		batch->Draw(last_batch);
@@ -403,11 +392,17 @@ void BatchPass::Draw(){
 	}
 }
 
-void BatchPass::Batch::Accept(NodeVisitor& v){
-	Serial.print("Batch.Accept Error? \n");
+//// Batch ////////////////////////////////////////////////////
+
+
+
+std::shared_ptr<Batch> Batch::Make(Attributes& attr, Primitive p) {
+	auto b = std::shared_ptr<Batch>(new Batch(attr, p));	
+	return b;
 }
 
-void BatchPass::Batch::Draw(Batch* last_batch){
+
+void Batch::Draw(Batch* last_batch){
 	Serial.print("Batch "); Serial.print(prim); Serial.print("\n");
 	if(last_batch == NULL){
 		GD.Begin(prim);
@@ -437,8 +432,17 @@ void BatchPass::Batch::Draw(Batch* last_batch){
 	std::for_each(nodes.begin(), nodes.end(), [](NPtr n){n->Draw();});	
 }
 
-bool BatchPass::Batch::operator==(const Batch& rhs){
+bool Batch::operator==(const Batch& rhs){
 	return prim == rhs.prim && ((Attributes)(*this) == (Attributes&)(rhs));
+}
+
+bool Batch::operator<(const Batch& rhs) {
+	if (layer < rhs.layer) return true;
+	if (prim < rhs.prim) return true;
+	if (color < rhs.color) return true;
+	if (line_width < rhs.line_width) return true;
+	if (point_size < rhs.point_size) return true;
+	return false;
 }
 
 

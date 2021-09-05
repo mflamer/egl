@@ -1,3 +1,4 @@
+
 #include <SPI.h>
 #include <GD2.h>
 #include "egl.h"
@@ -19,9 +20,10 @@ void setup() {
 	auto a = Attributes::Make();
 	a->SetColor(darkorange);
 	a->SetLineWidth(48);
+	a->SetLayer(UIBase);
 	p->Add(a);
 
-	auto r = Rectangle::Make(40, 40);
+	auto r = Rectangle::Make(40, 40, false);
 
 
 
@@ -58,8 +60,14 @@ void setup() {
 
 	p1->Add(poly);
 
+	auto rect = Rectangle::Make(15, 60, true);
+	auto a2 = Attributes::Make();
+	a2->SetColor(darkseagreen);
+	a2->Add(rect);
+
 	root->Add(p);
 	root->Add(a1);
+	root->Add(a2);
 	
 	
 }
@@ -87,9 +95,9 @@ void loop()
 	//state.tmat.Translate(50, 50);
 	//state.tmat.Scale(1, 2);
 
-	BatchPass batcher;
-	root->Accept(batcher);
-	batcher.Draw();
+	BatchSet batches;
+	root->DrawToBatch(batches);
+	batches.Draw();
 
 	// origin 
 	GD.Begin(POINTS);
