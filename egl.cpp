@@ -184,6 +184,51 @@ void Group::Clear(){
 }
 
 
+//// Display ////////////////////////////////////////////////////
+
+static std::shared_ptr<Display>	Display::Make(NPtr n = NULL) {
+	auto d = std::shared_ptr<Display>(new Display());
+	if (n) d->Add(n);
+	return d;
+}
+
+void Display::Update() {
+	EventService es = EventService::Get();
+	GD.get_inputs();
+	if (GD.inputs.tag != 255) {
+		
+	}
+}
+
+
+//// Button ////////////////////////////////////////////////////
+
+std::shared_ptr<Button> Button::Make(const char* name, U8 tag, PFloat x, PFloat y, PFloat w, PFloat h) {
+	auto b = std::shared_ptr<Button>(new Button(name, tag, x, y, w, h));
+	return b;
+}
+
+void Button::DrawToBatch(BatchSet& batchSet) {
+	// publish button clicked event
+	EventService es = EventService::Get();
+	GD.get_inputs();
+	Color c;
+	if (GD.inputs.tag == tag) {
+		es.Publish(ButtonClickEvent(GD.inputs.tag));
+		c = batchSet.Astk.front().color;
+		batchSet.Astk.front().color = coral;
+	}
+
+	V2 bl = batchSet.Tstk.front() * V2(x, y);
+	V2 tr = batchSet.Tstk.front() * V2(x + w, y + h);
+	auto r = AAFilledRect::Make(bl, tr);
+	batchSet.FindBatchOrMakeNewAndAdd(RECTS, r);
+
+	if (GD.inputs.tag == tag) {
+		batchSet.Astk.front().color = c;
+	}
+
+}
 
 //// Transform ////////////////////////////////////////////////////
 
@@ -263,6 +308,7 @@ Attributes::Attributes(){
 	tag_set = false; line_width_set = false; point_size_set = false;
 	line_width = 16;
 	color = Color();
+	tag = 255;
 	point_size = 16;
 }
 
@@ -411,6 +457,11 @@ void Batch::Draw(Batch* last_batch){
 		Serial.print("Color "); Serial.print(color.rgb()); Serial.print("\n");
 		GD.LineWidth(line_width);
 		Serial.print("Line Width "); Serial.print(line_width); Serial.print("\n");
+		if (tag != 255) {
+			GD.Tag(tag);
+			Serial.print("Tag "); Serial.print(tag); Serial.print("\n");
+		}
+
 		// finish these
 	}
 	else{
@@ -426,6 +477,10 @@ void Batch::Draw(Batch* last_batch){
 			GD.LineWidth(line_width);
 			Serial.print("Line Width "); Serial.print(line_width); Serial.print("\n");
 		}
+		if (tag != last_batch->tag) {
+			GD.Tag(tag);
+			Serial.print("Tag "); Serial.print(tag); Serial.print("\n");
+		}
 		// finish these
 	}	
 	
@@ -440,6 +495,7 @@ bool Batch::operator<(const Batch& rhs) {
 	if (layer < rhs.layer) return true;
 	if (prim < rhs.prim) return true;
 	if (color < rhs.color) return true;
+	if (tag < rhs.tag) return true;
 	if (line_width < rhs.line_width) return true;
 	if (point_size < rhs.point_size) return true;
 	return false;
@@ -496,6 +552,42 @@ Layer& Layer::Set(Layers l, unsigned char sub){
 	layer = l | (sub & 0x0F);
 	return *this;
 }
+
+
+//// events ///////////////////////////////////////////////////
+
+
+EventService& EventService::Get() {
+	static EventService* es = new EventService();
+	return *es;
+}
+
+void EventService::Publish(const Event& e) {
+	for (auto& sub : subs) {
+		if (sub.type == e.GetType()) {
+			if ((sub.filter == NULL) || (sub.filter && sub.filter->Apply(e))) {
+				sub.subscriber->Inform(e);
+			}
+		}
+	}
+}
+
+void EventService::Subscribe(Event::Type type, EventFilter* filter, Subscriber* subscriber) {
+	subs.push_back(Subscription(type, filter, subscriber));
+}
+
+void EventService::UnSubscribe(Event::Type type, EventFilter* filter, Subscriber* subscriber) {
+	auto sub = std::find(subs.begin(), subs.end(), Subscription(type, filter, subscriber));
+	if (sub != subs.end()) {
+		subs.erase(sub);
+	}
+}
+
+bool EventService::Subscription::operator==(const Subscription& rhs) {
+	return type == rhs.type && filter == rhs.filter && subscriber == rhs.subscriber;
+}
+
+
 
 
 

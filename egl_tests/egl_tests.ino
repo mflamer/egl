@@ -65,9 +65,12 @@ void setup() {
 	a2->SetColor(darkseagreen);
 	a2->Add(rect);
 
+	auto butt = Button::Make("test", 1, 100, 75, 40, 20);
+
 	root->Add(p);
 	root->Add(a1);
 	root->Add(a2);
+	root->Add(butt);
 	
 	
 }

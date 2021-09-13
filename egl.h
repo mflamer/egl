@@ -200,6 +200,7 @@ class PInt : public PValue{
 	value x;
 	bool is_param;
 public:
+	PInt() : x{ 0 } {}
 	PInt(int v){x.vi = v; is_param = false;}
 	PInt(const std::string& s){x = Key(s); is_param = true;}
 	operator 	int(){return is_param ? scope.front()->PInts[Key(x)] : x.vi;}	
@@ -209,6 +210,7 @@ class PFloat : public PValue{
 	value x;
 	bool is_param;
 public:
+	PFloat() : x{ 0 } {}
 	PFloat(int v){x.vf = (float)v; is_param = false;}
 	PFloat(float v){x.vf = v; is_param = false;}
 	PFloat(const char* s){x = Key(s); is_param = true;}
@@ -219,6 +221,7 @@ class PColor : public PValue{
 	value x;
 	bool is_param;
 public:
+	PColor() : x{ 0 } {}
 	PColor(Color v){x.vi = v; is_param = false;}
 	PColor(const std::string& s){x = Key(s); is_param = true;}
 	operator 	Color(){return Color(is_param ? scope.front()->PInts[Key(x)] : x.vi);}	
@@ -232,6 +235,58 @@ struct PPnt{
 };
 
 
+//// events ///////////////////////////////////////////////////
+
+class Event {
+public:
+	enum Type : U8 {
+		COLLISION,
+		TOUCH_CLICK
+	};
+	virtual Type GetType() = 0;
+private:
+	Type type;
+};
+
+class ButtonClickEvent : public Event {
+public:
+	ButtonClickEvent(U8 tag) : tag(tag) {}
+	Type GetType() { return TOUCH_CLICK; }
+	Event& Cast(Event* e) { return (ButtonClickEvent&)(*e); }
+	U8 tag;
+};
+
+class Subscriber {
+public:
+	virtual void Inform(const Event& e) {}
+};
+
+class EventFilter {
+public:
+	virtual bool Apply(const Event& e) = 0;
+};
+
+class EventService {
+public:
+	static EventService& Get();
+	void Publish(const Event& e);
+	void Subscribe(Event::Type event, EventFilter* filter, Subscriber* subscriber);
+	void UnSubscribe(Event::Type event, EventFilter* filter, Subscriber* subscriber);
+
+private:
+	struct Subscription { 
+		Subscription(Event::Type type, EventFilter* filter, Subscriber* subscriber) :
+			type(type), filter(filter), subscriber(subscriber) {}
+		Event::Type type; 
+		EventFilter* filter; 
+		Subscriber* subscriber; 
+		bool operator==(const Subscription& rhs);
+	};
+	EventService() {}
+	std::vector<Subscription> subs;
+
+};
+
 
 //// node heirachy ////////////////////////////////////////////
 
@@ -242,7 +297,7 @@ class BatchSet;
 class Node{
 public:
 	virtual	~Node()=0;
-	virtual	void 					Draw()=0;  
+	virtual	void 					Draw() {}
 	virtual void					DrawToBatch(BatchSet& batchSet){}
 	virtual	void 					Update(){}					
 	virtual void					Accept(NodeVisitor& v) {}
@@ -270,6 +325,15 @@ public:
 protected:	
 	Group(){}
 	std::list<NPtr> nodes;
+};
+
+class Display : public Group {
+public:
+	~Display();
+	static std::shared_ptr<Display>	Make(NPtr n = NULL);
+	virtual	void 					Update();
+protected:
+
 };
 
 
@@ -302,8 +366,6 @@ public:
 	Attributes							CopyWithSetAttributes(const Attributes& orig);
 	bool								operator==(Attributes& rhs);
 
-protected:
-
 	Layer			layer;
 	Color 			color;
 	unsigned char 	tag;
@@ -315,6 +377,9 @@ protected:
 	bool			tag_set;
 	bool			line_width_set;
 	bool			point_size_set;
+
+protected:
+
 };
 
 
@@ -378,7 +443,7 @@ protected:
 
 
 
-class Rectangle : public Group{
+class Rectangle : public Node{
 public:	
 	static std::shared_ptr<Rectangle>   Make(PFloat width, PFloat height, bool filled);	
 	virtual	void 						Draw();	
@@ -390,6 +455,23 @@ protected:
 	bool filled;
 	PFloat w, h;
 };
+
+
+class Button : public Node {
+public:
+	static std::shared_ptr<Button> 		Make(const char* name, U8 tag, PFloat x, PFloat y, PFloat w, PFloat h);
+	virtual void						DrawToBatch(BatchSet& batchSet);
+
+private:
+	Button(const char* buttonName, U8 tag, PFloat x, PFloat y, PFloat w, PFloat h) :
+		name(buttonName), tag(tag), x(x), y(y), w(w), h(h) {}
+	const char* name;
+	U8	tag;
+	PFloat x, y, w, h;
+};
+
+
+
 
 class Batch : public Attributes {
 public:	
